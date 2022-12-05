@@ -19,7 +19,7 @@ import {
   AccountUpdate,
   Signature,
 } from 'snarkyjs';
-import { TicTacToe, Board } from './tictactoe.js';
+import { MultiSigContract } from './multisigv2';
 
 await isReady;
 let Local = Mina.LocalBlockchain({ proofsEnabled: false });
@@ -28,14 +28,14 @@ const [{ privateKey: player1 }, { privateKey: player2 }] = Local.testAccounts;
 
 const zkAppPrivateKey = PrivateKey.random();
 const zkAppPublicKey = zkAppPrivateKey.toPublicKey();
-const zkApp = new TicTacToe(zkAppPublicKey);
+const zkApp = new MultiSigContract(zkAppPublicKey);
 
 // Create a new instance of the contract
 console.log('\n\n====== DEPLOYING ======\n\n');
 const txn = await Mina.transaction(player1, () => {
   AccountUpdate.fundNewAccount(player1);
-  zkApp.deploy();
-  zkApp.startGame(player1.toPublicKey(), player2.toPublicKey());
+  zkApp.deploy({ zkappKey: zkAppPrivateKey });
+  zkApp.setup(Field(1), Field(1), Field(1), Field(1));
 });
 await txn.prove();
 /**
@@ -50,68 +50,68 @@ await txn.sign([zkAppPrivateKey]).send();
 console.log('after transaction');
 
 // initial state
-let b = zkApp.board.get();
-
-console.log('initial state of the zkApp');
-let zkAppState = Mina.getAccount(zkAppPublicKey).appState;
-for (const i in [0, 1, 2, 3, 4, 5, 6, 7]) {
-  console.log('state', i, ':', zkAppState?.[i].toString());
-}
-
-console.log('\ninitial board');
-new Board(b).printState();
-
-// play
-console.log('\n\n====== FIRST MOVE ======\n\n');
-await makeMove(player1, 0, 0);
-
-// debug
-b = zkApp.board.get();
-new Board(b).printState();
-
-// play
-console.log('\n\n====== SECOND MOVE ======\n\n');
-await makeMove(player2, 1, 0);
-// debug
-b = zkApp.board.get();
-new Board(b).printState();
-
-// play
-console.log('\n\n====== THIRD MOVE ======\n\n');
-await makeMove(player1, 1, 1);
-// debug
-b = zkApp.board.get();
-new Board(b).printState();
-
-// play
-console.log('\n\n====== FOURTH MOVE ======\n\n');
-await makeMove(player2, 2, 1);
-
-// debug
-b = zkApp.board.get();
-new Board(b).printState();
-
-// play
-console.log('\n\n====== FIFTH MOVE ======\n\n');
-await makeMove(player1, 2, 2);
-
-// debug
-b = zkApp.board.get();
-new Board(b).printState();
-console.log(
-  'did someone win?',
-  zkApp.nextIsPlayer2.get().toBoolean() ? 'Player 1!' : 'Player 2!'
-);
+// let b = zkApp.board.get();
+//
+// console.log('initial state of the zkApp');
+// let zkAppState = Mina.getAccount(zkAppPublicKey).appState;
+// for (const i in [0, 1, 2, 3, 4, 5, 6, 7]) {
+//   console.log('state', i, ':', zkAppState?.[i].toString());
+// }
+//
+// console.log('\ninitial board');
+// new Board(b).printState();
+//
+// // play
+// console.log('\n\n====== FIRST MOVE ======\n\n');
+// await makeMove(player1, 0, 0);
+//
+// // debug
+// b = zkApp.board.get();
+// new Board(b).printState();
+//
+// // play
+// console.log('\n\n====== SECOND MOVE ======\n\n');
+// await makeMove(player2, 1, 0);
+// // debug
+// b = zkApp.board.get();
+// new Board(b).printState();
+//
+// // play
+// console.log('\n\n====== THIRD MOVE ======\n\n');
+// await makeMove(player1, 1, 1);
+// // debug
+// b = zkApp.board.get();
+// new Board(b).printState();
+//
+// // play
+// console.log('\n\n====== FOURTH MOVE ======\n\n');
+// await makeMove(player2, 2, 1);
+//
+// // debug
+// b = zkApp.board.get();
+// new Board(b).printState();
+//
+// // play
+// console.log('\n\n====== FIFTH MOVE ======\n\n');
+// await makeMove(player1, 2, 2);
+//
+// // debug
+// b = zkApp.board.get();
+// new Board(b).printState();
+// console.log(
+//   'did someone win?',
+//   zkApp.nextIsPlayer2.get().toBoolean() ? 'Player 1!' : 'Player 2!'
+// );
 
 // cleanup
 await shutdown();
 
-async function makeMove(currentPlayer: PrivateKey, x0: number, y0: number) {
-  const [x, y] = [Field(x0), Field(y0)];
-  const txn = await Mina.transaction(currentPlayer, async () => {
-    const signature = Signature.create(currentPlayer, [x, y]);
-    zkApp.play(currentPlayer.toPublicKey(), signature, x, y);
-  });
-  await txn.prove();
-  await txn.send();
-}
+// async function makeMove(currentPlayer: PrivateKey, x0: number, y0: number) {
+//   const [x, y] = [Field(x0), Field(y0)];
+//   const txn = await Mina.transaction(currentPlayer, async () => {
+//     const signature = Signature.create(currentPlayer, [x, y]);
+//     zkApp.play(currentPlayer.toPublicKey(), signature, x, y);
+//   });
+//   await txn.prove();
+//   await txn.send();
+// }

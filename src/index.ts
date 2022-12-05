@@ -1,3 +1,3 @@
-import { TicTacToe, Board } from './tictactoe.js';
+import { MultiSigContract } from './multisigv2.js';
 
-export { TicTacToe, Board };
+export { MultiSigContract };
