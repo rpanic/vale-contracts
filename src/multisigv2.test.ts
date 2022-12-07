@@ -77,7 +77,15 @@ describe('multisigv2', () => {
         new SignerState({ pubkey: pk.toPublicKey(), voted: Bool(false) }).hash()
       );
     }
+  });
 
+  afterAll(async () => {
+    setTimeout(shutdown, 0);
+  });
+
+  let it2 = (a: string, b: () => void) => {};
+
+  it2('approve a transfer', async () => {
     await deployMultisig(
       zkAppInstance,
       context.signersTree,
@@ -87,24 +95,6 @@ describe('multisigv2', () => {
       2,
       context.proveMethod
     );
-  });
-
-  afterAll(async () => {
-    setTimeout(shutdown, 0);
-  });
-
-  /*it('generates and deploys sudoku', async () => {
-    await deploy(zkAppInstance, zkAppPrivateKey, sudoku, account);
-
-    let state = getZkAppState(zkAppInstance);
-    expect(state).toBeDefined();
-    expect(state.isSolved).toBe(false);
-  });*/
-
-  it('approve a transfer', async () => {
-    // await fetchAccount({ publicKey: zkAppAddress })
-
-    // openConsole()
 
     let proposal = new Proposal({
       amount: Mina.accountCreationFee().mul(2),
@@ -196,6 +186,95 @@ describe('multisigv2', () => {
     );
 
     await assertBalance(signers[1], Mina.accountCreationFee());
+    await assertBalance(zkAppAddress, UInt64.from(0));
+  });
+
+  it('approve a transfer with initialized account', async () => {
+    await deployMultisig(
+      zkAppInstance,
+      context.signersTree,
+      numSigners,
+      context.stateTree,
+      account,
+      1,
+      context.proveMethod
+    );
+
+    let proposal = new Proposal({
+      amount: Mina.accountCreationFee().mul(2),
+      receiver: signers[2],
+    });
+
+    let proposalState = new ProposalState({
+      proposal: proposal,
+      index: Field(0),
+      votes: [Field(0), Field(0)],
+      signerStateRoot: context.signersTree.getRoot(),
+      accountCreationFeePaid: Bool(false),
+    });
+
+    expect(zkAppInstance.proposalRoot.get()).toEqual(
+      context.stateTree.getRoot()
+    );
+
+    let witness = await context.stateTree.getWitness(Field(0));
+
+    let send = async (
+      acc: PrivateKey,
+      to: PublicKey,
+      amount: UInt64,
+      create: boolean = false
+    ) => {
+      await (
+        await Mina.transaction(acc, () => {
+          if (create) {
+            AccountUpdate.fundNewAccount(acc);
+          }
+          AccountUpdate.createSigned(acc).send({
+            to: to,
+            amount: amount,
+          });
+        })
+      )
+        .sign()
+        .send();
+    };
+
+    await send(account, zkAppAddress, Mina.accountCreationFee().mul(2));
+    await send(account, signers[2], UInt64.from(1), true);
+
+    await assertBalance(
+      account.toPublicKey(),
+      UInt64.from(996900000000).sub(Mina.accountCreationFee()).sub(1)
+    );
+    await assertBalance(zkAppAddress, Mina.accountCreationFee().mul(2));
+
+    // await signWithProof(proof1, proposalStateBefore, proposalState, witness, account, zkAppAddress, context.proveMethod)
+    await approve(
+      proposalState,
+      witness,
+      context.signersTree,
+      signersPk[0],
+      Bool(true),
+      account,
+      zkAppAddress,
+      context.proveMethod,
+      false
+    );
+
+    context.signersTree.set(
+      signers[0].x,
+      new SignerState({ pubkey: signers[0], voted: Bool(true) }).hash()
+    );
+
+    expect(proposalState.accountCreationFeePaid).toEqual(Bool(false));
+    context.stateTree.set(Field(0), proposalState.hash());
+
+    // expect(context.stateTree.getRoot()).toEqual(zkAppInstance.proposalRoot.get()) Proposal has been paid out
+
+    // expect(proposalState.hash()).toEqual(context.stateTree.get(Field(0)));
+
+    await assertBalance(signers[2], Mina.accountCreationFee().mul(2).add(1));
     await assertBalance(zkAppAddress, UInt64.from(0));
   });
 

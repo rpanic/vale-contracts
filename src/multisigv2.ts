@@ -79,11 +79,28 @@ export class ProposalState extends Struct({
   }
 }
 
+export class VotedEvent extends Struct({
+  signer: PublicKey,
+  vote: Bool,
+  proposal: Proposal,
+  index: Field,
+}) {}
+
+export class InitEvent extends Struct({
+  numSigners: Field,
+  k: Field,
+}) {}
+
 export class MultiSigContract extends SmartContract {
   @state(Field) signerRoot = State<Field>();
   @state(Field) proposalRoot = State<Field>();
   @state(Field) numSigners = State<Field>();
   @state(Field) signerThreshold = State<Field>();
+
+  events = {
+    init: InitEvent,
+    voted: VotedEvent,
+  };
 
   @method setup(
     signerRoot: Field,
@@ -100,6 +117,14 @@ export class MultiSigContract extends SmartContract {
     this.signerThreshold.set(threshold);
     this.numSigners.set(numSigners);
     this.proposalRoot.set(proposalRoot);
+
+    this.emitEvent(
+      'init',
+      new InitEvent({
+        numSigners: numSigners,
+        k: threshold,
+      })
+    );
   }
 
   deploy(args: DeployArgs) {
@@ -117,7 +142,7 @@ export class MultiSigContract extends SmartContract {
 
   init() {
     super.init();
-    this.signerThreshold.set(Field(0));
+    // this.signerThreshold.set(Field(0));
     // this.numSigners.set(Field(0))
     // this.proposalRoot.set(Field(0))
   }
@@ -205,30 +230,41 @@ export class MultiSigContract extends SmartContract {
     let isNew = accountUpdate.account.isNew.get();
     accountUpdate.account.isNew.assertEquals(isNew);
 
+    Circuit.log('isNew', isNew);
+
     let feesPayedNow = Circuit.if(
       isNew,
       Mina.accountCreationFee(),
       UInt64.from(0)
     );
 
-    proposalState.proposal.amount.assertGte(
-      feesPayedNow,
-      'Amount transferred not enough to pay account creation fee'
+    // proposalState.proposal.amount.assertGte(
+    //   feesPayedNow,
+    //   'Amount transferred not enough to pay account creation fee'
+    // );
+    //TODO Enable after https://github.com/o1-labs/snarkyjs/issues/636 is closed
+
+    Circuit.log(
+      'accountCreationFeePaid Before',
+      proposalState.accountCreationFeePaid
     );
 
     proposalState.accountCreationFeePaid =
       proposalState.accountCreationFeePaid.or(feesPayedNow.gt(UInt64.from(0)));
     this.balance.subInPlace(feesPayedNow);
 
+    let feeSubAmount = Circuit.if(
+      proposalState.accountCreationFeePaid,
+      Mina.accountCreationFee(),
+      UInt64.from(0)
+    );
+
     let amount = Circuit.if(
       votesReached,
-      proposalState.proposal.amount.sub(
-        Circuit.if(
-          proposalState.accountCreationFeePaid,
-          Mina.accountCreationFee(),
-          UInt64.from(0)
-        )
-      ),
+      proposalState.proposal.amount,
+      // .sub(
+      //     feeSubAmount
+      // )
       UInt64.from(0)
     );
 
@@ -249,5 +285,15 @@ export class MultiSigContract extends SmartContract {
     );
 
     this.proposalRoot.set(newRoot);
+
+    this.emitEvent(
+      'voted',
+      new VotedEvent({
+        signer: signer,
+        vote: vote,
+        proposal: proposalState.proposal,
+        index: proposalState.index,
+      })
+    );
   }
 }

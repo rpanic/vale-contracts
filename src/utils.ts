@@ -149,7 +149,8 @@ export async function approve(
   vote: Bool,
   account: PrivateKey,
   zkAppAddress: PublicKey,
-  proveMethod: ProveMethod
+  proveMethod: ProveMethod,
+  newAccount: boolean = true
 ) {
   let signature = Signature.create(signer, [
     proposalState.hash(),
@@ -181,11 +182,15 @@ export async function approve(
     tx.sign(proveMethod.zkappKey ? [proveMethod.zkappKey] : []);
     await tx.send();
 
-    if (proposalState.accountCreationFeePaid.toBoolean() === false) {
+    if (
+      proposalState.accountCreationFeePaid.toBoolean() === false &&
+      newAccount
+    ) {
       proposalState.accountCreationFeePaid = Bool(true);
     }
     let i = vote.toBoolean() ? 0 : 1;
     proposalState.votes[i] = proposalState.votes[i].add(1);
+
     signerState.set(
       signer.toPublicKey().x,
       new SignerState({
@@ -193,6 +198,7 @@ export async function approve(
         voted: Bool(true),
       }).hash()
     );
+
     proposalState.signerStateRoot = signerState.getRoot();
 
     return true;
