@@ -272,7 +272,7 @@ export class MultiSigContract extends SmartContract {
 
     let newProposalTreeValue = Circuit.if(
       votesReached.or(
-        votesAgainst.gte(this.numSigners.get().sub(this.signerThreshold.get()))
+        votesAgainst.gt(this.numSigners.get().sub(this.signerThreshold.get()))
       ),
       MerkleMapUtils.EMPTY_VALUE,
       proposalState.hash()
