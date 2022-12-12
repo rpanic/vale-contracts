@@ -1,6 +1,6 @@
-# Mina zkApp: Tictactoe
+# Mina zkApp: Vale Multisig
 
-This template uses TypeScript.
+Find the corresponding UI repository at [Vale-UI](https://github.com/rpanic/vale-ui)
 
 ## How to build
 
