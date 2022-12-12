@@ -18,7 +18,7 @@ import readline from 'readline';
 import util from 'util';
 
 export function createLocalBlockchain(): PrivateKey {
-  let Local = Mina.LocalBlockchain({ accountCreationFee: 1e9 });
+  let Local = Mina.LocalBlockchain({ accountCreationFee: 1e9, proofsEnabled: true });
   Mina.setActiveInstance(Local);
 
   const account = Local.testAccounts[0].privateKey;
@@ -61,22 +61,24 @@ export async function deployMultisig(
     () => {
       AccountUpdate.fundNewAccount(account);
 
-      zkAppInstance.deploy({ zkappKey: proveMethod.zkappKey! });
-      zkAppInstance.setup(
-        signers.getRoot(),
-        state.getRoot(),
-        Field(signersLength),
-        Field(k)
-      );
+      zkAppInstance.deploy(proveMethod);
+      // zkAppInstance.setup(
+      //   signers.getRoot(),
+      //   state.getRoot(),
+      //   Field(signersLength),
+      //   Field(k)
+      // );
 
       console.log('Init with k = ', k);
 
-      // if(proveMethod.zkappKey){
-      zkAppInstance.requireSignature();
-      // }
+      if(proveMethod.zkappKey){
+        console.log("require sig")
+        zkAppInstance.requireSignature();
+      }
     }
   );
   if (proveMethod.verificationKey) {
+    console.log("Proving")
     await tx.prove();
   }
   tx.sign(proveMethod.zkappKey ? [proveMethod.zkappKey] : []);
@@ -222,9 +224,10 @@ export class MerkleMapUtils {
     value: Field
   ): Bool {
     let r = witness.computeRootAndKey(value);
-    r[0].assertEquals(root, '1');
-    r[1].assertEquals(key, '2');
-    return Bool(true);
+    return r[0].equals(root)
+        .and(
+          r[1].equals(key)
+        )
   }
 
   static computeRoot(
