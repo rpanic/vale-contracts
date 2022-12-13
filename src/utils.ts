@@ -62,12 +62,12 @@ export async function deployMultisig(
       AccountUpdate.fundNewAccount(account);
 
       zkAppInstance.deploy(proveMethod);
-      // zkAppInstance.setup(
-      //   signers.getRoot(),
-      //   state.getRoot(),
-      //   Field(signersLength),
-      //   Field(k)
-      // );
+      zkAppInstance.setup(
+        signers.getRoot(),
+        state.getRoot(),
+        Field(signersLength),
+        Field(k)
+      );
 
       console.log('Init with k = ', k);
 
@@ -178,6 +178,7 @@ export async function approve(
     }
   });
   try {
+
     if (proveMethod.verificationKey) {
       await tx.prove();
     }

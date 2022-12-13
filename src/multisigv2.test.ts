@@ -189,7 +189,12 @@ describe('multisigv2', () => {
     await assertBalance(zkAppAddress, UInt64.from(0));
   });
 
-  it('approve a transfer with initialized account', async () => {
+  it2('approve a transfer with initialized account', async () => {
+    await testApproveWithInitializedAccount()
+  })
+
+  async function testApproveWithInitializedAccount(){
+
     await deployMultisig(
       zkAppInstance,
       context.signersTree,
@@ -276,7 +281,20 @@ describe('multisigv2', () => {
 
     await assertBalance(signers[2], Mina.accountCreationFee().mul(2).add(1));
     await assertBalance(zkAppAddress, UInt64.from(0));
-  });
+  }
+
+  it2("Deploy with proof", async () => {
+
+    let vk = await MultiSigContract.compile()
+
+    context.proveMethod = {
+      verificationKey: vk.verificationKey,
+      zkappKey: undefined
+    }
+
+    await testApproveWithInitializedAccount()
+
+  })
 
   // it('rejects an incorrect solution', async () => {
   //   await deploy(zkAppInstance, zkAppPrivateKey, sudoku, account);

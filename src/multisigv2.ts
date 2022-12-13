@@ -134,7 +134,7 @@ export class MultiSigContract extends SmartContract {
       editState: Permissions.proofOrSignature(),
       editSequenceState: Permissions.proofOrSignature(),
       incrementNonce: Permissions.proofOrSignature(),
-      setVerificationKey: Permissions.none(),
+      setVerificationKey: Permissions.signature(),
       setPermissions: Permissions.proofOrSignature(),
     });
     this.signerRoot.set(Field(0));
