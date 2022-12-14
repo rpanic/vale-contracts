@@ -136,15 +136,8 @@ export class MultiSigContract extends SmartContract {
       incrementNonce: Permissions.proofOrSignature(),
       setVerificationKey: Permissions.signature(),
       setPermissions: Permissions.proofOrSignature(),
+      send: Permissions.proofOrSignature()
     });
-    this.signerRoot.set(Field(0));
-  }
-
-  init() {
-    super.init();
-    // this.signerThreshold.set(Field(0));
-    // this.numSigners.set(Field(0))
-    // this.proposalRoot.set(Field(0))
   }
 
   // @method approveSignatureBatch(params: ){
