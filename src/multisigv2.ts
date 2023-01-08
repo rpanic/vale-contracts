@@ -15,7 +15,7 @@ import {
   state,
   Struct,
   UInt64,
-  Permissions,
+  Permissions, PrivateKey,
 } from 'snarkyjs';
 import { MerkleMapUtils } from './utils';
 
@@ -91,6 +91,10 @@ export class InitEvent extends Struct({
   k: Field,
 }) {}
 
+export class DeployEvent extends Struct({
+  someValue: Field
+}) {}
+
 export class MultiSigContract extends SmartContract {
   @state(Field) signerRoot = State<Field>();
   @state(Field) proposalRoot = State<Field>();
@@ -100,6 +104,7 @@ export class MultiSigContract extends SmartContract {
   events = {
     init: InitEvent,
     voted: VotedEvent,
+    deploy: DeployEvent
   };
 
   @method setup(
@@ -138,6 +143,14 @@ export class MultiSigContract extends SmartContract {
       setPermissions: Permissions.proofOrSignature(),
       send: Permissions.proofOrSignature()
     });
+
+    this.emitEvent("deploy", new DeployEvent({
+      someValue: Field(13056987395)
+    }))
+  }
+
+  init(key?: PrivateKey){
+    //Override this method to prevent the state from being reset
   }
 
   // @method approveSignatureBatch(params: ){

@@ -1,7 +1,7 @@
 // helpers
 import {
   AccountUpdate,
-  Bool,
+  Bool, fetchAccount,
   Field,
   isReady,
   MerkleMap,
@@ -16,6 +16,7 @@ import fs from 'fs';
 import { MultiSigContract, ProposalState, SignerState } from './multisigv2';
 import readline from 'readline';
 import util from 'util';
+import {tic, toc} from "./tictoc";
 
 export function createLocalBlockchain(): PrivateKey {
   let Local = Mina.LocalBlockchain({ accountCreationFee: 1e9, proofsEnabled: true });
@@ -56,20 +57,27 @@ export async function deployMultisig(
   k: number,
   proveMethod: ProveMethod
 ): Promise<string> {
+
+  let acc = await fetchAccount({publicKey: account.toPublicKey()})
+  let nonce = acc.account!.nonce
+
   let tx = await Mina.transaction(
-    { feePayerKey: account, fee: 0.1 * 1e9 },
-    () => {
-      AccountUpdate.fundNewAccount(account);
+      { feePayerKey: account, fee: 0.1 * 1e9 },
+      () => {
+        AccountUpdate.fundNewAccount(account);
 
-      zkAppInstance.deploy(proveMethod);
-      zkAppInstance.setup(
-        signers.getRoot(),
-        state.getRoot(),
-        Field(signersLength),
-        Field(k)
-      );
+        zkAppInstance.setup(
+          signers.getRoot(),
+          state.getRoot(),
+          Field(signersLength),
+          Field(k)
+        );
 
-      console.log('Init with k = ', k);
+        zkAppInstance.requireSignature()
+
+        zkAppInstance.deploy(proveMethod);
+
+        console.log('Init with k = ', k);
 
       if(proveMethod.zkappKey){
         console.log("require sig")
@@ -78,25 +86,42 @@ export async function deployMultisig(
     }
   );
   if (proveMethod.verificationKey) {
-    console.log("Proving")
+    tic("Proving deploy...")
     await tx.prove();
+    toc()
   }
   tx.sign(proveMethod.zkappKey ? [proveMethod.zkappKey] : []);
+  // console.log(tx.toJSON())
   let txId = await tx.send();
 
-  // tx = await Mina.transaction(account, () => {
-  //     zkAppInstance.setup(signers.getRoot(), state.getRoot(), Field(signersLength), Field(k));
-  //     if(proveMethod.zkappKey){
-  //         zkAppInstance.requireSignature()
-  //     }
-  // })
-  // if(proveMethod.verificationKey){
-  //     await tx.prove()
-  // }
-  // tx.sign(proveMethod.zkappKey ? [proveMethod.zkappKey] : [])
-  // txId = await tx.send()
-
   return txId.hash();
+}
+
+export async function secondDeployPart(
+    zkAppInstance: MultiSigContract,
+    signers: MerkleMap,
+    signersLength: number,
+    state: MerkleMap,
+    account: PrivateKey,
+    k: number,
+    proveMethod: ProveMethod
+) : Promise<string> {
+
+  let acc = await fetchAccount({publicKey: account.toPublicKey()})
+
+  //Send 2nd tx for setup
+  if(proveMethod.verificationKey){
+    let tx = await Mina.transaction({ feePayerKey: account, fee: 0.01 * 1e9 }, () => {
+      zkAppInstance.setup(signers.getRoot(), state.getRoot(), Field(signersLength), Field(k));
+    })
+    tic("Proving second depoy part...")
+    await tx.prove()
+    toc()
+    tx.sign()
+    let txId = await tx.send()
+    return txId.hash()
+  }
+  return ""
 }
 
 export async function printBalance(key: PublicKey) {
@@ -173,16 +198,18 @@ export async function approve(
       signerWitness
     );
 
-    if (proveMethod.zkappKey) {
+    if (proveMethod.zkappKey && !proveMethod.verificationKey) {
       zkApp.requireSignature();
     }
   });
   try {
 
     if (proveMethod.verificationKey) {
+      tic("Proving approve...")
       await tx.prove();
+      toc()
     }
-    tx.sign(proveMethod.zkappKey ? [proveMethod.zkappKey] : []);
+    tx.sign(proveMethod.zkappKey && !proveMethod.verificationKey ? [proveMethod.zkappKey] : []);
     await tx.send();
 
     if (
